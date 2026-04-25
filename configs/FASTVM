@@ -1,0 +1,117 @@
+include 	"arch/amd64/conf/std.amd64"
+
+options 	INCLUDE_CONFIG_FILE
+maxusers	32
+options 	RTC_OFFSET=0
+options 	NTP
+options 	MODULAR
+options 	MODULAR_DEFAULT_AUTOLOAD
+options 	USERCONF
+options 	SYSCTL_INCLUDE_DESCR
+options 	SVS
+options 	PCPU_IDT
+
+makeoptions	SPECTRE_V2_GCC_MITIGATION=1
+options 	SPECTRE_V2_GCC_MITIGATION
+
+acpicpu*	at cpu?
+
+options 	BUFQ_PRIOCSCAN
+
+options 	DKWEDGE_AUTODISCOVER
+options 	DKWEDGE_METHOD_GPT
+
+include "conf/filesystems.config"
+options 	FFS_EI
+options 	UFS_DIRHASH
+options 	DISKLABEL_EI
+
+options 	INET
+options 	INET6
+options 	IPSEC
+
+config		netbsd	root on ? type ?
+
+acpi0		at mainbus0
+options 	ACPI_SCANPCI
+options 	MPBIOS
+options 	MPBIOS_SCANPCI
+
+acpibut*	at acpi?
+acpiecdt*	at acpi?
+acpivmgenid*	at acpi?
+com0		at acpi?
+com1		at acpi?
+com*		at acpi?
+hpet*		at acpihpetbus?
+hpet*		at acpinodebus?
+qemufwcfg*	at acpi?
+
+pci*	at mainbus? bus ?
+pci*	at pchb? bus ?
+pci*	at ppb? bus ?
+
+pchb*	at pci? dev ? function ?
+pcib*	at pci? dev ? function ?
+ppb*	at pci? dev ? function ?
+puc*	at pci? dev ? function ?
+
+ichlpcib* at pci? dev ? function ?
+fwhrng* at ichlpcib?
+
+isa0	at mainbus?
+isa0	at pcib?
+isa0	at ichlpcib?
+
+com*	at puc? port ?
+com0	at isa? port 0x3f8 irq 4
+com1	at isa? port 0x2f8 irq 3
+
+pckbc*		at acpi?
+pckbc0		at isa?
+pckbd*		at pckbc?
+vga*		at pci? dev ? function ?
+genfb*		at pci? dev ? function ?
+options 	VCONS_DRAW_INTR
+wsdisplay*	at vga? console ?
+wsdisplay*	at wsemuldisplaydev?
+wskbd*		at pckbd? console ?
+
+vioif*		at virtio?
+
+virtio*		at pci? dev ? function ?
+include "dev/virtio/virtio.config"
+no viomb*
+no viocon*
+no vioscsi*
+no viogpu*
+no viornd*
+no vio9p*
+
+pseudo-device	crypto
+pseudo-device	swcrypto
+pseudo-device	md
+options 	MEMORY_DISK_HOOKS
+options 	MEMORY_DISK_DYNAMIC
+pseudo-device	vnd
+pseudo-device	bpfilter
+pseudo-device	loop
+pseudo-device	tun
+pseudo-device	tap
+pseudo-device	vlan
+pseudo-device	pty
+pseudo-device	clockctl
+pseudo-device	ksyms
+pseudo-device	drvctl
+pseudo-device	wsmux
+pseudo-device	wsfont
+
+options 	EFI_RUNTIME
+pseudo-device 	efi
+
+include "dev/veriexec.config"
+
+options 	PAX_MPROTECT=1
+options 	PAX_ASLR=1
+
+cinclude	"arch/amd64/conf/FASTVM.local"

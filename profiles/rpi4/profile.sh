@@ -9,4 +9,4 @@ IMAGE_MB=1907
 SETS='base etc rescue modules'
 LIVEIMAGE_SUBDIR=distrib/evbarm/liveimage/armimage
 PREBUILT_IMAGE_GZ=binary/gzimg/arm64.img.gz
-POST_IMAGE=no
+POST_IMAGE=yes

@@ -1,3 +1,7 @@
 images/
+build/
 logs/
+work/
+tmp/
 .envrc
+*.log

@@ -1,9 +1,12 @@
 PROFILE ?= $(shell if [ -f .envrc ]; then . ./.envrc >/dev/null 2>&1; printf '%s' "$$PROFILE"; else printf '%s' qemu-amd64; fi)
 
-.PHONY: help fetch fetch-official apply-config netbsd image run write-sd inspect-sd patch-rpi4-sd clean-images profiles select-profile
+.PHONY: help setup docs fetch fetch-official apply-config netbsd image run write-sd inspect-sd patch-rpi4-sd clean-images profiles select-profile
 
 help:
 	@printf '%s\n' 'kleinbsd targets:'
+	@printf '%s\n' ''
+	@printf '%s\n' '  make setup         Install build dependencies (Ubuntu/Debian)'
+	@printf '%s\n' '  make docs          Generate doc/kleinbsd.pdf'
 	@printf '%s\n' ''
 	@printf '%s\n' '  make select-profile PROFILE=<name>'
 	@printf '%s\n' '                     Persist active profile in .envrc'
@@ -22,32 +25,53 @@ help:
 	@printf '%s\n' 'Selected profile:'
 	@printf '%s\n' '  $(PROFILE)'
 	@printf '%s\n' ''
-	@printf '%s\n' 'Typical first run:'
-	@printf '%s\n' '  make fetch'
-	@printf '%s\n' '  make select-profile PROFILE=qemu-amd64'
-	@printf '%s\n' '  make netbsd'
-	@printf '%s\n' '  make image'
-	@printf '%s\n' '  make run'
-	@printf '%s\n' ''
-	@printf '%s\n' 'Raspberry Pi 4 SD image:'
+	@printf '%s\n' 'Raspberry Pi 4 from source:'
+	@printf '%s\n' '  make setup'
 	@printf '%s\n' '  make select-profile PROFILE=rpi4'
+	@printf '%s\n' '  make fetch'
 	@printf '%s\n' '  make netbsd'
 	@printf '%s\n' '  make image'
 	@printf '%s\n' '  make write-sd'
 	@printf '%s\n' ''
-	@printf '%s\n' 'Official Raspberry Pi 4 image test:'
-	@printf '%s\n' '  make select-profile PROFILE=rpi4-official'
-	@printf '%s\n' '  make fetch-official'
-	@printf '%s\n' '  make write-sd'
-	@printf '%s\n' ''
-	@printf '%s\n' 'Stable NetBSD 10 Raspberry Pi 4 image test:'
-	@printf '%s\n' '  make select-profile PROFILE=rpi4-netbsd10'
-	@printf '%s\n' '  make fetch-official'
-	@printf '%s\n' '  make write-sd'
+	@printf '%s\n' 'Raspberry Pi 4 quick-start (official binary):'
+	@printf '%s\n' '  ./uefi-test-community.sh'
+	@printf '%s\n' '  sudo dd if=images/rpi4-uefi/arm64-uefi-fw.img of=/dev/sdX bs=4M conv=fsync status=progress'
 	@printf '%s\n' ''
 	@printf '%s\n' 'Useful overrides:'
 	@printf '%s\n' '  PROFILE=qemu-amd64 JOBS=8 IMAGE_MB=768 make image'
-	@printf '%s\n' '  NETBSD_DIR=/path/to/src OBJ_DIR=/path/to/obj-rpi4 make image'
+	@printf '%s\n' '  NETBSD_DIR=build/netbsd-src OBJ_DIR=build/obj-rpi4 make image'
+
+# ---- dependency setup (Ubuntu / Debian) ------------------------------
+
+APT_PKGS := build-essential bison flex curl gzip unzip git sudo
+APT_PKGS += util-linux coreutils mtools
+APT_PKGS += pandoc texlive-xetex texlive-latex-recommended texlive-fonts-recommended lmodern fonts-dejavu
+
+setup:
+	@if ! command -v apt-get >/dev/null 2>&1; then \
+		printf '%s\n' 'apt-get not found. Only Ubuntu/Debian supported.'; \
+		exit 1; \
+	fi
+	@missing=$$(for pkg in $(APT_PKGS); do \
+		dpkg -s "$$pkg" >/dev/null 2>&1 || printf '%s\n' "$$pkg"; \
+	done); \
+	if [ -z "$$missing" ]; then \
+		exit 0; \
+	fi; \
+	printf '%s\n' '>>> Installing missing packages:'; \
+	printf '    %s\n' $$missing; \
+	sudo apt-get update; \
+	sudo apt-get install -y -o Dpkg::Options::="--force-confold" $$missing; \
+	printf '%s\n' '>>> Done.'
+
+# ---- documentation ---------------------------------------------------
+
+docs: setup doc/kleinbsd.md
+	pandoc doc/kleinbsd.md -o doc/kleinbsd.pdf \
+		--pdf-engine=xelatex \
+		-V geometry:margin=1in \
+		--toc
+	@printf '%s\n' 'Generated: doc/kleinbsd.pdf'
 
 profiles:
 	@find profiles -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort

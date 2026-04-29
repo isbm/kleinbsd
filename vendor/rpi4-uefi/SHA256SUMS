@@ -1,0 +1,23 @@
+# SHA256SUMS for pftf/RPi4 UEFI Firmware v1.51
+# Source: https://github.com/pftf/RPi4/releases/tag/v1.51
+
+000b6c518e83bb93262ed6b264a0e9498509c46513dabf58c0dbb73d4c2e7c18  RPi4_UEFI_Firmware_v1.51.zip
+
+# ---- individual files inside the zip ----
+
+94d7ce695f51576a607ea9e9a683e189752a84fb13ac5c37a2d74ae517fc60a0  bcm2711-rpi-400.dtb
+74d0fae95850c9d80cce98f529e724427adccf3b9ae6106940ac66eddc0ad4c5  bcm2711-rpi-4-b.dtb
+ca44aba7feeaf41d64fef182dab4fccc284be8ad635a44a66564d9d0189a5adc  bcm2711-rpi-cm4.dtb
+2d9ed5d808cb385d8be8d52c80c67af8b8c0a61830da5f09f721f3e251705e17  config.txt
+cf79e8e8727d103a94cd243f1d98770fa29f5da25df251d0d31b3696f3b4ac6a  firmware/brcm/brcmfmac43455-sdio.bin
+2dbd7d22fc9af0eb560ceab45b19646d211bc7b34a1dd00c6bfac5dd6ba25e8a  firmware/brcm/brcmfmac43455-sdio.clm_blob
+ca709be81a78bdb6932936374f39943acbd7af07fae6151011127599a3ce9e3d  firmware/brcm/brcmfmac43455-sdio.Raspberry
+dcac2fbe1ab246cd5c3c917a4b3f94ae9694fba3ab0eb45aa17ec7a9d7f432f5  firmware/brcm/brcmfmac43455-sdio.txt
+715b11c842179f67a5d4104266e86f5956242489c073a4acf7196ad638275bf1  firmware/LICENCE.txt
+eea0b6611be9f4445fada511e23db9406dd1e18df10fc11b1e2c966abd8f6e38  firmware/Readme.txt
+80fde48a87ec7ee94e150680b754db53e9800887694e58299c65630c952b5fd9  fixup4.dat
+c38c12945f14ac0c71b609a48c94566b3c323a9cfd39d8cb286799e87e14197e  overlays/miniuart-bt.dtbo
+2a5c9d8c47cb4679fa3aeb8f009ce71411ddd729e653ff6e3202bc0d5f4ebd79  overlays/upstream-pi4.dtbo
+92f65554f1a34b69c6369cac97ff7144eaddfe914b560fd4a39a576e064537a5  Readme.md
+f80eaec89a7c70da47f00cc4b4dea0978706527def99100872d0b93c121b6d32  RPI_EFI.fd
+77260733037721d20209325b01b1fbc167f0bef387c18888b07bd57e06e7ce26  start4.elf

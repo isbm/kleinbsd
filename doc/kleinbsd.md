@@ -1,258 +1,305 @@
 ---
-title: kleinbsd
-subtitle: Small NetBSD image builder for Raspberry Pi 4
+title: KleinBSD
+subtitle: NetBSD image builder for Raspberry Pi 4
 date: April 2026
 toc: true
 geometry: margin=1in
-mainfont: DejaVu Sans
-monofont: DejaVu Sans Mono
 ---
 
-# Overview
+# TL;DR
 
-kleinbsd builds a bootable NetBSD SD card image for the Raspberry Pi 4.
-Two paths are available:
+You just cloned this repo. You have an SD card and a Pi 4. You want
+NetBSD on it, right now.
 
-| Path | Command | What it does |
-|------|---------|--------------|
-| **Quick** (official binary) | `./uefi-test-community.sh` | Downloads the official NetBSD 10.1 `arm64.img`, injects UEFI firmware, outputs a bootable image. No source build needed. |
-| **Full** (from source) | `make netbsd && make image` | Builds the entire NetBSD release from source, then injects UEFI firmware. Everything is compiled locally. |
-
-Both paths produce the same result: an SD card image that boots on a Raspberry Pi 4.
-
-# Quick start (first time)
-
-```
-make setup              # install dependencies (Ubuntu/Debian)
-make                    # show available targets
-make select-profile PROFILE=rpi4
-make fetch              # clone NetBSD source into ../netbsd
-make netbsd             # build NetBSD from source (takes a while)
-make image              # build the SD card image
-make write-sd           # write it to an SD card (interactive)
+```sh
+make select-profile rpi4-netbsd11   # pick the 11-stable source-build profile
+make build                          # clone NetBSD, checkout branch, compile
+make image                          # assemble image + inject UEFI firmware
+make write-sd                       # write to SD card (asks which device)
 ```
 
-To skip the source build and use the official NetBSD 10.1 binary instead:
+# What is this
 
-```
-./uefi-test-community.sh
-sudo dd if=images/rpi4-uefi/arm64-uefi-fw.img of=/dev/sdX bs=4M conv=fsync status=progress
-```
+KleinBSD builds a NetBSD SD card image that actually boots on a
+Raspberry Pi 4. The official images don't always boot out of the box
+on all Pi 4 boards --- the GPU firmware bundled with them is often too
+old or incompatible with newer Pi EEPROM revisions, and you'll get a
+black screen with nothing but a red power LED.
 
-# Requirements
-
-- Ubuntu 22.04 or newer / Debian 11 or newer
-- At least 10 GB free disk space for a full source build
-- An SD card and a USB SD card reader
-- A Raspberry Pi 4 with HDMI display + keyboard, or serial console
+We fix this by injecting the [pftf/RPi4](https://github.com/pftf/RPi4)
+UEFI firmware into the image's FAT boot partition. This gives the Pi a
+UEFI firmware blob it actually recognizes, which then chainloads the
+NetBSD bootloader. It's a dumb one-liner fix, but it works.
 
 # How it boots
 
-The Raspberry Pi 4 boot ROM (EEPROM) does **not** directly boot `netbsd.img`. It needs firmware it recognizes on the SD card's FAT partition.
-
-The official NetBSD `arm64.img` relies on the **GPU firmware path**:
-
-```
-Pi4 EEPROM -> start4.elf -> config.txt -> netbsd.img -> NetBSD
-```
-
-This path fails on many Pi4 boards because the EEPROM version may reject the bundled `start4.elf` / `fixup4.dat` blobs (version mismatch, boot mode configuration, etc.).
-
-kleinbsd fixes this by injecting the **pftf/RPi4 UEFI firmware** into the FAT partition. The boot chain becomes:
+The Pi 4 has a boot ROM in its EEPROM. On power-up it reads the SD
+card looking for firmware it can load. The official NetBSD `arm64.img`
+ships with Broadcom GPU firmware files (`start4.elf`, `fixup4.dat`) that
+are supposed to load `netbsd.img` directly:
 
 ```
-Pi4 EEPROM -> RPI_EFI.fd (TianoCore EDK2 UEFI) -> EFI/BOOT/BOOTAA64.EFI -> netbsd.img -> NetBSD
+EEPROM  -->  start4.elf  -->  config.txt  -->  netbsd.img
 ```
 
-`RPI_EFI.fd` is a standard UEFI firmware image the Pi4 EEPROM knows how to load. It then chainloads the NetBSD EFI bootloader, which was already present in the original `arm64.img` (under `EFI/`). The kernel and FFS root partition remain untouched.
+This path breaks silently on many Pi 4s. The EEPROM either doesn't
+like the version of `start4.elf` or expects something else entirely.
+Result: red LED, black screen, sadness.
 
-The UEFI firmware is sourced from [pftf/RPi4](https://github.com/pftf/RPi4), which builds [TianoCore EDK2](https://github.com/tianocore/edk2) for the Raspberry Pi 4 platform.
+What we do instead: inject a real UEFI firmware image from the
+pftf/RPi4 project. This is TianoCore EDK2 compiled for the Pi 4.
+The Pi EEPROM knows how to load it, and it in turn loads the NetBSD
+EFI bootloader that was already sitting in the `EFI/` directory of
+the original image:
 
-# UEFI firmware: mirroring and reproducibility
+```
+EEPROM  -->  RPI_EFI.fd (UEFI)  -->  EFI/BOOT/BOOTAA64.EFI  -->  netbsd.img
+```
 
-All UEFI firmware artifacts are pinned in `configs/rpi4-uefi.sh`:
+The kernel, the root filesystem, the kernel command line --- none of
+that changes. We only replace the tiny boot chain on the FAT partition.
 
-- **Prebuilt release:** URL and SHA256 checksum for the pftf/RPi4 release zip (currently v1.51).
-- **EDK2 source commits:** Exact submodule pins for `edk2`, `edk2-platforms`, and `edk2-non-osi` used to build the release. Run `scripts/build-rpi4-uefi-firmware.sh` to reproduce `RPI_EFI.fd` from source.
+# Directory layout
 
-The only components that **cannot** be built from source are `start4.elf` and `fixup4.dat` (Broadcom GPU firmware blobs). These are shipped inside the pftf zip and cached locally.
-
-# Project structure
+Everything lives inside the project. Nothing spills into the parent
+directory.
 
 ```
 kleinbsd/
-  configs/
-    rpi4-uefi.sh          pinned firmware versions + checksums
-    FASTVM                example minimal kernel config (amd64)
-  doc/
-    kleinbsd.md           this documentation
-  images/                 built images (gitignored)
-  lib/
-    project.sh            shared shell library
+  Makefile               the only interface you need
+  build/                 gitignored --- all the heavy stuff
+    netbsd-src/           NetBSD source tree (git clone)
+    obj-rpi4/             build output for the rpi4 profile
+    obj-rpi4-netbsd11/    build output for rpi4-netbsd11
   profiles/
-    rpi4/
-      profile.sh          machine, kernel, image settings
-      post-image.sh       UEFI firmware injection
-    qemu-amd64/           QEMU test profile
-    rpi4-official/        official NetBSD daily HEAD image
-    rpi4-netbsd10/        official NetBSD 10.x release image
-  scripts/
-    build-netbsd.sh       full NetBSD source build
-    build-image.sh        image assembly
-    build-rpi4-uefi-firmware.sh  build RPI_EFI.fd from EDK2 source
-    fetch-netbsd.sh       clone NetBSD source tree
-    fetch-official-image.sh      download official NetBSD image
-    write-sd.sh           interactive SD card writer
-    inspect-sd.sh         inspect FAT boot partition on SD card
-    patch-rpi4-sd.sh      patch config.txt on an existing SD card
-    run.sh                QEMU runner
-  uefi-test-community.sh  quick-start: download official image + inject UEFI
-  Makefile                primary interface
-  .envrc                  currently selected profile
+    rpi4/                 build from source, whatever branch
+    rpi4-netbsd11/        build from netbsd-11 branch
+    rpi4-official/        download official daily HEAD image
+    rpi4-netbsd10/        download official 10.x stable image
+    qemu-amd64/           QEMU test target
+  scripts/                the shell scripts that do the work
+  images/                 built SD card images (gitignored)
+  vendor/rpi4-uefi/       mirrored UEFI firmware zip + checksums
+  configs/rpi4-uefi.sh    pinned firmware versions and SHA256 hashes
+  doc/                    this documentation
 ```
 
-# Profiles
+The images are big (1--2 GB). We don't put them in git. The UEFI
+firmware zip is 3.4 MB --- that *is* committed to `vendor/` so the
+project works even if GitHub goes down.
 
-Profiles define machine architecture, kernel config, image size, and post-processing.
+# Fetching, building, updating
 
-| Profile | Purpose | Machine | Kernel |
-|---------|---------|---------|--------|
-| `rpi4` | Build from source, inject UEFI | evbarm / aarch64 | GENERIC64 |
-| `qemu-amd64` | QEMU test target | amd64 | FASTVM |
-| `rpi4-official` | Official NetBSD daily HEAD | (downloaded) | (prebuilt) |
-| `rpi4-netbsd10` | Official NetBSD 10.x stable | (downloaded) | (prebuilt) |
+`make build` handles everything. First time it clones the NetBSD
+source tree from GitHub into `build/netbsd-src/`. On subsequent runs
+it does a `git fetch` and fast-forwards to the latest commit on the
+branch your profile wants. Then it compiles.
 
-Select a profile:
+The build produces two things:
 
-```
-make select-profile PROFILE=rpi4
-```
+1. A full NetBSD release in `build/obj-<profile>/releasedir/`. This
+   includes the standard `arm64.img.gz` that we'll use for the SD card.
+2. Toolchain binaries for cross-compiling the kernel later.
 
-This writes `.envrc`. After that, plain `make netbsd`, `make image`, and `make write-sd` use the selected profile.
+Logs go to `logs/<profile>/tools.log` and `logs/<profile>/release.log`.
+The build output is hidden so your terminal doesn't drown. You can watch
+it live in another terminal:
 
-# Workflow reference
-
-## One-time setup
-
-```
-make setup              # install build dependencies
-make select-profile PROFILE=rpi4
-make fetch              # clone NetBSD source (once)
+```sh
+make watch-logs
 ```
 
-## Build cycle
+This opens tmux with two panes --- tools on the left, release on
+the right --- and tails both as the build progresses. Ctrl-B & to quit,
+Ctrl-B D to detach and leave it running in the background.
 
-```
-make netbsd             # build NetBSD release (long, one-time)
-make image              # assemble image + inject UEFI firmware
-make write-sd           # write to SD card (interactive)
-```
+`make build` also prints a reminder about this before starting, with
+the tmux quit keys. You won't miss it.
 
-## Quick rebuilds
+# Choosing a profile
 
-If only the kernel config or image settings changed, rebuild just the image:
+Profiles live in `profiles/<name>/profile.sh`. A profile is just a
+shell snippet that sets variables: machine architecture, kernel config,
+image size, which sets to include, and whether to apply post-processing.
 
-```
-make image              # skips the full release build, reuses arm64.img.gz
-```
-
-## Inspection and debugging
-
-```
-make inspect-sd         # inspect FAT boot partition on an SD card
-make patch-rpi4-sd      # patch config.txt with HDMI/diagnostic settings
+```sh
+make select-profile rpi4-netbsd11
 ```
 
-# The UEFI injection step in detail
+That writes the choice to `.envrc`. From then on `make build`, `make
+image`, and `make write-sd` use it. You can override once:
 
-The key to making NetBSD boot on a Raspberry Pi 4 is `profiles/rpi4/post-image.sh`. It is called automatically by `make image` and performs the following:
+```sh
+PROFILE=rpi4 make image
+```
 
-1. Downloads (or loads from cache) the pftf/RPi4 UEFI firmware zip, verifying its SHA256 checksum.
-2. Mounts the FAT boot partition from the built `arm64.img` using a loop device.
-3. Extracts the UEFI firmware zip into the FAT partition, which places `RPI_EFI.fd`, updated `start4.elf` / `fixup4.dat`, device tree blobs, and a `config.txt` that chainloads into the UEFI firmware.
-4. Unmounts and cleans up.
+But positional is nicer:
 
-The existing NetBSD EFI bootloader (`EFI/BOOT/BOOTAA64.EFI`), kernel (`netbsd.img`), and FFS root partition are preserved. Only the boot chain on the FAT partition is replaced.
+```sh
+make select-profile rpi4
+```
 
-# Kernel customization (embedded use)
+Available profiles:
 
-The default profile uses `KERNEL_CONFIG=GENERIC64` which includes drivers for many devices. To trim the kernel to a bare minimum:
+- **rpi4** --- build from source, whatever branch you left checked out
+  in `build/netbsd-src`.
+- **rpi4-netbsd11** --- build from the `netbsd-11` stable branch.
+  `make build` checks it out and fast-forwards automatically.
+- **rpi4-official** --- download the latest NetBSD daily HEAD image
+  from nycdn.netbsd.org. No compilation, just `make fetch-official`
+  and `make write-sd`.
+- **rpi4-netbsd10** --- same but for the 10.x stable release.
+- **qemu-amd64** --- a small amd64 image for testing with QEMU. Not
+  relevant for the Pi.
 
-1. Create a minimal kernel config in `configs/`, e.g., `configs/RPI4-MINIMAL`:
+# Building the image
+
+`make image` takes the `arm64.img.gz` that `make build` produced,
+decompresses it, and runs the post-image script. For rpi4 profiles,
+the post-image script injects the UEFI firmware into the FAT boot
+partition. That's the whole magic.
+
+The output lands in `images/<profile>/NetBSD-kleinbsd-<profile>.img`.
+That's the file you `dd` to the SD card.
+
+# Writing to SD
+
+```sh
+make write-sd
+```
+
+It's interactive. It prints `lsblk`, asks for the device (e.g.
+`/dev/sdb`), asks you to type it again as confirmation, unmounts any
+mounted partitions, and `dd`s the image. It syncs when done.
+
+Or do it manually:
+
+```sh
+lsblk
+sudo dd if=images/rpi4-netbsd11/NetBSD-kleinbsd-rpi4-netbsd11.img \
+        of=/dev/sdX bs=4M conv=fsync status=progress
+sync
+```
+
+Always write to the **whole disk** (`/dev/sdb`), never a partition
+(`/dev/sdb1`). The image contains its own partition table.
+
+# Kernel customization
+
+The default kernel is `GENERIC64` --- everything including the kitchen
+sink. For an embedded use case you'll want to trim it down.
+
+Create a config file, say `configs/RPI4-MINIMAL`:
 
 ```
 include "arch/evbarm/conf/GENERIC64"
-no options        INET6
-no pseudo-device  bpfilter
-# ... remove unneeded drivers ...
+no options      INET6
+no pseudo-device bpfilter
+# ... remove whatever you don't need ...
 ```
 
-2. Update `profiles/rpi4/profile.sh`:
+Then update `profiles/rpi4-netbsd11/profile.sh`:
 
 ```
 KERNEL_CONFIG=RPI4-MINIMAL
 APPLY_KERNEL_CONFIG=yes
-PREBUILT_IMAGE_GZ=            # disable prebuilt path, rebuild from source
-IMAGE_MB=512                  # smaller image for embedded
-SETS='base etc'               # minimal userland
+PREBUILT_IMAGE_GZ=               # rebuild the image too
+IMAGE_MB=512                      # smaller
+SETS='base etc'                   # minimal userland
 ```
 
-3. Rebuild:
+Rebuild:
 
-```
-make netbsd                     # rebuild with custom kernel
-make image                      # assemble minimal image
-```
-
-The `APPLY_KERNEL_CONFIG=yes` line copies your config into the NetBSD source tree before building.
-
-# SD card writing
-
-`make write-sd` is interactive: it lists block devices, asks for the device path, and asks for confirmation before overwriting.
-
-Alternatively, write manually:
-
-```
-lsblk                              # find your SD card (e.g., /dev/sdb)
-sudo dd if=images/rpi4/NetBSD-kleinbsd-rpi4.img of=/dev/sdb bs=4M conv=fsync status=progress
-sync
+```sh
+make build
+make image
 ```
 
-**Always write to the whole disk** (e.g., `/dev/sdb`), never a partition (e.g., `/dev/sdb1`).
+`APPLY_KERNEL_CONFIG=yes` copies your config into the source tree
+before compiling.
+
+# The UEFI firmware mirror
+
+The pftf/RPi4 firmware zip is committed to `vendor/rpi4-uefi/`. It's
+3.4 MB. Alongside it is a `SHA256SUMS` file with hashes of the zip
+and every file inside it. The `configs/rpi4-uefi.sh` file pins the
+version and checksum.
+
+The post-image script checks all of this before injecting. If the
+checksum doesn't match, it refuses to proceed.
+
+If pftf/RPi4 ever disappears or a newer version breaks:
+
+- The old known-good zip is in git history.
+- `configs/rpi4-uefi.sh` pins which version to use.
+- `SHA256SUMS` lets you verify nothing got corrupted.
+- `scripts/build-rpi4-uefi-firmware.sh` can build `RPI_EFI.fd` from
+  EDK2 source if you want zero binary trust.
+
+The only pieces that can't be built from source are `start4.elf` and
+`fixup4.dat` --- those are Broadcom GPU firmware blobs from the
+Raspberry Pi firmware repo. They're small, well-known, and very
+unlikely to disappear.
 
 # Troubleshooting
 
-**Only red power LED, no green ACT LED, black screen:**
-The Pi4 EEPROM found no valid boot firmware on the SD card. Ensure the UEFI injection step ran successfully. Re-run `make image` and check that `RPI_EFI.fd` appears on the FAT partition (use `make inspect-sd` after writing).
+**Red LED only, no green ACT LED, totally black screen.**
 
-**Rainbow screen then black:**
-The Pi4 loaded `start4.elf` but couldn't find or load the next stage. Check that `config.txt` contains `armstub=RPI_EFI.fd`.
+The Pi EEPROM found nothing it could boot. The UEFI firmware didn't
+make it onto the FAT partition. Re-run `make image` and check that
+`RPI_EFI.fd` shows up in the output. Verify with `make inspect-sd`
+after writing.
 
-**Kernel panic after boot:**
-Check `cmdline.txt` on the FAT partition. The default `root=ld0a` should work with the standard image layout.
+**Rainbow screen, then nothing.**
 
-**EEPROM too old:**
-If the Pi4 refuses to load UEFI firmware from SD, update the EEPROM:
-- Boot the Pi4 with a Raspberry Pi OS SD card
-- Run `sudo rpi-eeprom-update -a`
-- Reboot
+The Pi loaded `start4.elf` but couldn't find or load the next stage.
+Check that the FAT partition has `config.txt` with `armstub=RPI_EFI.fd`.
 
-**Build fails with "Cannot find nbmake-\*":**
-Run `make netbsd` first. The full NetBSD build must complete before `make image` can use its tools.
+**Booting but no network.**
+
+If you get a `169.254.x.x` address, DHCP timed out. Try `dhcpcd -4`
+or set a static IP:
+
+```sh
+ifconfig genet0 inet 192.168.2.99 netmask 255.255.255.0
+route add default 192.168.2.1
+```
+
+If the PHY link is up (check `ifconfig genet0 | grep status`) but
+static IPs can't ping either, the kernel driver on your branch might
+be broken. Switch to a known-good branch (netbsd-10 or netbsd-11).
+
+**EEPROM too old to boot UEFI.**
+
+Boot the Pi with a Raspberry Pi OS SD card once, run
+`sudo rpi-eeprom-update -a`, reboot. Then your NetBSD SD card should work.
 
 # Environment overrides
 
-All variables defined in profile scripts and config files can be overridden from the environment:
+Every variable set by a profile can be overridden from the environment
+or the make command line:
 
-```
+```sh
 JOBS=8 PROFILE=rpi4 IMAGE_MB=768 make image
-NETBSD_DIR=/path/to/src OBJ_DIR=/path/to/obj make image
+NETBSD_DIR=/some/other/path make build
 ```
 
-# Generating this document
+# Requirements
 
-```
-make docs              # produces doc/kleinbsd.pdf
+- Ubuntu 22.04 or newer, or Debian 11 or newer
+- Nothing else. `make build` auto-installs missing packages via apt-get
+  on the very first run. You'll see it happen once, then never again.
+- About 25 GB of free disk space for a full source build
+- An SD card and USB reader
+- Raspberry Pi 4 with HDMI and keyboard (or serial console)
+- Patience during the first build
+
+# Generating the PDF
+
+```sh
+make docs
 ```
 
-Requires `pandoc` and `texlive-xetex` (installed by `make setup`).
+Requires pandoc and xelatex. If they're missing, they'll be
+auto-installed on first run just like everything else. Output
+goes to `doc/kleinbsd.pdf`.

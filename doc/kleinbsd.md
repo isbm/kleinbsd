@@ -212,6 +212,12 @@ IMAGE_MB=512                      # smaller
 SETS='base etc'                   # minimal userland
 ```
 
+`RPI_UEFI=yes` is already set in all rpi4 profiles. It forces UEFI
+injection during `make image`. If the post-image script is missing
+for any reason, the build **fails** rather than silently producing
+an unbootable SD card. If you're creating a new rpi4-family profile,
+include `RPI_UEFI=yes` and the injection is automatic.
+
 Rebuild:
 
 ```sh
@@ -220,7 +226,9 @@ make image
 ```
 
 `APPLY_KERNEL_CONFIG=yes` copies your config into the source tree
-before compiling.
+before compiling. Configs live in `configs/<arch>/` -- `configs/aarch64/`
+for the Pi, `configs/amd64/` for QEMU. The subdirectory name matches
+`MACHINE_ARCH` (or `MACHINE` if arch isn't set).
 
 # The UEFI firmware mirror
 

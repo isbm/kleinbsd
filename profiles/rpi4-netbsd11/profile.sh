@@ -1,0 +1,13 @@
+PROFILE=rpi4-netbsd11
+NETBSD_BRANCH=netbsd-11
+MACHINE=evbarm
+MACHINE_ARCH=aarch64
+RELEASE_MACHINE=evbarm-aarch64
+KERNEL_CONFIG=GENERIC64
+APPLY_KERNEL_CONFIG=no
+IMAGE_BASE=NetBSD-kleinbsd-rpi4-netbsd11
+IMAGE_MB=1907
+SETS='base etc rescue modules'
+LIVEIMAGE_SUBDIR=distrib/evbarm/liveimage/armimage
+PREBUILT_IMAGE_GZ=binary/gzimg/arm64.img.gz
+POST_IMAGE=yes

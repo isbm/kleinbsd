@@ -30,6 +30,29 @@ IMAGE_LOG=${LOG_DIR}/image.log
 
 mkdir -p "${LOG_DIR}"
 
+_post_image_inject() {
+	if [ "${RPI_UEFI:-}" != yes ]; then
+		if [ "${POST_IMAGE}" = no ]; then
+			return 0
+		fi
+	fi
+	post="${PROFILE_DIR}/post-image.sh"
+	fallback="${PROJECT_DIR}/profiles/rpi4/post-image.sh"
+	if [ -x "${post}" ]; then
+		"${post}" "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img"
+	elif [ -x "${fallback}" ]; then
+		"${fallback}" "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img"
+	else
+		printf '%s\n' "FATAL: no post-image.sh found for evbarm/aarch64."
+		printf '%s\n' "  Expected at: ${post} or ${fallback}"
+		exit 1
+	fi
+	if [ -f "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img" ]; then
+		rm -f "${GZ_IMAGE}"
+		gzip -n -9c "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img" > "${GZ_IMAGE}"
+	fi
+}
+
 if [ -n "${PREBUILT_IMAGE_GZ}" ]; then
 	mkdir -p "${PROFILE_IMAGES_DIR}"
 	SOURCE_IMAGE_GZ=${OBJ_DIR}/releasedir/${RELEASE_MACHINE}/${PREBUILT_IMAGE_GZ}
@@ -42,11 +65,7 @@ if [ -n "${PREBUILT_IMAGE_GZ}" ]; then
 	rm -f "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img" "${GZ_IMAGE}"
 	cp "${SOURCE_IMAGE_GZ}" "${GZ_IMAGE}"
 	gzip -dc "${GZ_IMAGE}" > "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img"
-	if [ "${POST_IMAGE}" != no ] && [ -x "${PROFILE_DIR}/post-image.sh" ]; then
-		"${PROFILE_DIR}/post-image.sh" "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img"
-		rm -f "${GZ_IMAGE}"
-		gzip -n -9c "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img" > "${GZ_IMAGE}"
-	fi
+	_post_image_inject
 	printf '\n%s\n' "Built images:"
 	ls -lh "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img" "${GZ_IMAGE}"
 	exit 0
@@ -102,11 +121,7 @@ if [ -f "${RAW_IMAGE}" ]; then
 	cp "${RAW_IMAGE}" "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img"
 fi
 
-if [ "${POST_IMAGE}" != no ] && [ -x "${PROFILE_DIR}/post-image.sh" ]; then
-	"${PROFILE_DIR}/post-image.sh" "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img"
-	rm -f "${GZ_IMAGE}"
-	gzip -n -9c "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img" > "${GZ_IMAGE}"
-fi
+_post_image_inject
 
 printf '\n%s\n' "Built images:"
 ls -lh "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img" "${GZ_IMAGE}"

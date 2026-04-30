@@ -189,8 +189,12 @@ Always write to the **whole disk** (`/dev/sdb`), never a partition
 The default kernel is `GENERIC64` --- everything including the kitchen
 sink. For an embedded use case you'll want to trim it down.
 
-Create a config file, say `configs/RPI4-MINIMAL`:
+Create a config file in the right subdirectory. For evbarm aarch64
+it's `configs/aarch64/`, for amd64 it's `configs/amd64/`. Example:
 
+```
+configs/aarch64/RPI4-MINIMAL
+```
 ```
 include "arch/evbarm/conf/GENERIC64"
 no options      INET6

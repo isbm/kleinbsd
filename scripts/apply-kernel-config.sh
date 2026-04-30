@@ -12,7 +12,7 @@ if [ "${APPLY_KERNEL_CONFIG}" = no ]; then
 	exit 0
 fi
 
-src=${PROJECT_DIR}/configs/${KERNEL_CONFIG}
+src=${PROJECT_DIR}/configs/${MACHINE_ARCH:-${MACHINE}}/${KERNEL_CONFIG}
 dst=${NETBSD_DIR}/sys/arch/${MACHINE}/conf/${KERNEL_CONFIG}
 
 if [ ! -f "${src}" ]; then

@@ -9,6 +9,5 @@ IMAGE_BASE=NetBSD-kleinbsd-rpi4-netbsd11
 IMAGE_MB=1907
 SETS='base etc rescue modules'
 LIVEIMAGE_SUBDIR=distrib/evbarm/liveimage/armimage
-PREBUILT_IMAGE_GZ=binary/gzimg/arm64.img.gz
 POST_IMAGE=yes
 RPI_UEFI=yes

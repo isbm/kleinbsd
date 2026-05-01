@@ -4,6 +4,7 @@ set -eu
 
 PROJECT_DIR=${PROJECT_DIR:-$(pwd -P)}
 
+# Get PROFILE from .envrc early (needed to find the profile directory)
 if [ -f "${PROJECT_DIR}/.envrc" ]; then
 	. "${PROJECT_DIR}/.envrc"
 fi
@@ -20,17 +21,22 @@ else
 	exit 1
 fi
 
+# Source .envrc again so per-session overrides (like KERNEL_CONFIG from
+# make select-kernel) take precedence over profile defaults.
+if [ -f "${PROJECT_DIR}/.envrc" ]; then
+	. "${PROJECT_DIR}/.envrc"
+fi
+
 MACHINE=${MACHINE:-amd64}
 MACHINE_ARCH=${MACHINE_ARCH:-}
 OBJ_DIR=${OBJ_DIR:-"${PROJECT_DIR}/build/obj-${PROFILE}"}
-KERNEL_CONFIG=${KERNEL_CONFIG:-FASTVM}
+KERNEL_CONFIG=${KERNEL:-${KERNEL_CONFIG:-FASTVM}}
 APPLY_KERNEL_CONFIG=${APPLY_KERNEL_CONFIG:-yes}
 IMAGE_BASE=${IMAGE_BASE:-NetBSD-kleinbsd-${PROFILE}}
 IMAGE_MB=${IMAGE_MB:-512}
 SETS=${SETS:-base etc rescue modules}
 LIVEIMAGE_SUBDIR=${LIVEIMAGE_SUBDIR:-distrib/${MACHINE}/liveimage/emuimage}
 RELEASE_MACHINE=${RELEASE_MACHINE:-${MACHINE}}
-PREBUILT_IMAGE_GZ=${PREBUILT_IMAGE_GZ:-}
 POST_IMAGE=${POST_IMAGE:-yes}
 NETBSD_BRANCH=${NETBSD_BRANCH:-}
 RPI_UEFI=${RPI_UEFI:-}

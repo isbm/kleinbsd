@@ -17,9 +17,22 @@ fi
 printf '%s\n' "Selected profile: ${PROFILE}"
 printf '%s\n' "Image: ${IMAGE}"
 printf '%s\n' ""
-lsblk
+
+# Find removable candidates (exclude system disk, NVMe, loops)
+candidates=$(lsblk -e 7 -nrpo NAME,SIZE,TYPE 2>/dev/null | \
+	awk '$3 == "disk" { print $1, $2 }' | \
+	grep -v '/dev/sda\|/dev/nvme\|/dev/loop')
+if [ -z "${candidates}" ]; then
+	printf '%s\n' "lsblk:"
+	lsblk -e 7
+	printf '%s\n' ""
+fi
+printf '%s\n' "Removable devices:"
+printf '%s\n' "${candidates}" | while read -r dev size; do
+	printf '%s\n' "  ${dev}  (${size})"
+done
 printf '%s\n' ""
-printf '%s' "Whole disk device to overwrite, e.g. /dev/sdd: "
+printf '%s' "Device to overwrite: "
 read -r DEVICE
 
 case "${DEVICE}" in
@@ -58,4 +71,10 @@ done
 printf '%s\n' "Writing image..."
 sudo dd if="${IMAGE}" of="${DEVICE}" bs=4M conv=fsync status=progress
 sync
-printf '%s\n' "Done."
+printf '%s\n' "Unmounting partitions under ${DEVICE} ..."
+lsblk -nrpo NAME,MOUNTPOINT "${DEVICE}" | while read -r name mountpoint; do
+	if [ -n "${mountpoint}" ]; then
+		sudo umount "${name}" 2>/dev/null || true
+	fi
+done
+printf '%s\n' "Done. Safe to remove."

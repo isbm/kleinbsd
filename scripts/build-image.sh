@@ -53,25 +53,9 @@ _post_image_inject() {
 	fi
 }
 
-if [ -n "${PREBUILT_IMAGE_GZ}" ]; then
-	mkdir -p "${PROFILE_IMAGES_DIR}"
-	SOURCE_IMAGE_GZ=${OBJ_DIR}/releasedir/${RELEASE_MACHINE}/${PREBUILT_IMAGE_GZ}
-	if [ ! -f "${SOURCE_IMAGE_GZ}" ]; then
-		printf '%s\n' "Missing prebuilt image: ${SOURCE_IMAGE_GZ}"
-		printf '%s\n' "Run make netbsd first."
-		exit 1
-	fi
-	printf '%s\n' "Using prebuilt profile image: ${SOURCE_IMAGE_GZ}"
-	rm -f "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img" "${GZ_IMAGE}"
-	cp "${SOURCE_IMAGE_GZ}" "${GZ_IMAGE}"
-	gzip -dc "${GZ_IMAGE}" > "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img"
-	_post_image_inject
-	printf '\n%s\n' "Built images:"
-	ls -lh "${PROFILE_IMAGES_DIR}/${IMAGE_BASE}.img" "${GZ_IMAGE}"
-	exit 0
+if [ "${APPLY_KERNEL_CONFIG}" = yes ]; then
+	"${PROJECT_DIR}/scripts/apply-kernel-config.sh"
 fi
-
-"${PROJECT_DIR}/scripts/apply-kernel-config.sh"
 
 printf '%s\n' "Building ${KERNEL_CONFIG} kernel"
 printf '%s\n' "Kernel build log: ${KERNEL_LOG}"
@@ -88,7 +72,7 @@ fi
 
 if [ ! -d "${SOURCE_SETS}" ]; then
 	printf '%s\n' "Missing release sets: ${SOURCE_SETS}"
-	printf '%s\n' "Run ./build-netbsd.sh first."
+	printf '%s\n' "Run make build first."
 	exit 1
 fi
 

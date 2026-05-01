@@ -1,0 +1,179 @@
+#
+# KleinBSD — minimal RPi4 appliance kernel
+#
+# GENERIC64 as base. Strips heavy drivers, keeps boot-critical infra.
+#
+
+include	"arch/evbarm/conf/GENERIC64"
+
+# ---- verbose boot while we debug ------------------------------------
+
+options 	VERBOSE_INIT_ARM
+
+# ---- strip display / graphics ---------------------------------------
+
+no dispcon*
+no panel*
+no dwhdmi*
+no anxdp*
+no anxedp*
+no radeon*
+no radeondrmkmsfb*
+no rkdrm*
+no rkvop*
+no rkfb*
+no sunxide2bus*
+no sunxidrm*
+no sunxifb*
+no sunxihdmiphy*
+no sunxilcdc*
+no sunximixer*
+no pwmbacklight*
+no pwmfan*
+
+# ---- strip extra PHYs (keep brgphy + ukphy) -------------------------
+
+no atphy*
+no exphy*
+no gentbi*
+no glxtphy*
+no gphyter*
+no gxlphy*
+no icsphy*
+no igphy*
+no ihphy*
+no ikphy*
+no inphy*
+no iophy*
+no lxtphy*
+no makphy*
+no mcommphy*
+no nsphy*
+no nsphyter*
+no pnaphy*
+no rdcphy*
+no rgephy*
+no rlphy*
+no smscphy*
+no sqphy*
+no tlphy*
+no tqphy*
+no urlphy*
+
+# ---- strip extra NICs (keep genet + awge) ---------------------------
+
+no aq*
+no bge*
+no ena*
+no igc*
+no ixg*
+no ixl*
+no ixv*
+no mcx*
+no mskc*
+no msk*
+no re*
+no rge*
+no vmx*
+no wm*
+no emac*
+no enet*
+no eqos*
+
+# ---- strip audio ----------------------------------------------------
+
+no hdaudio*
+no hdafg*
+no ausoc*
+no simpleamp*
+no spdiftx*
+no rki2s*
+no sunxicodec*
+no sun8icodec*
+no h3codec*
+no a64acodec*
+no sunxii2s*
+no eap*
+no spkr*
+no uaudio*
+
+# BCM platform code needs genfb for wscons headers; keep it
+# volatile — try removing after boot (may cause linker errors)
+
+# ---- strip SATA / SCSI / NVMe --------------------------------------
+
+no ahcisata*
+no siisata*
+no atabus*
+no atapibus*
+no wd*
+no cd*
+no nvme*
+no mpt*
+no scsibus*
+no sd*
+no pvscsi*
+
+# ---- strip virtio (QEMU) --------------------------------------------
+
+no virtio*
+
+# ---- strip WiFi / Bluetooth -----------------------------------------
+
+no bwfm*
+
+# ---- strip I2C accessory devices ------------------------------------
+
+no titemp*
+no seeprom*
+no spdmem*
+no as3722pmic*
+no as3722reg*
+no axppmic*
+no axpreg*
+no cwfg*
+no dsrtc*
+no es8316ac*
+no fan53555reg*
+no max77620pmic*
+no pcaiicmux*
+no pcf8563rtc*
+no rkpmic*
+no rkreg*
+no tcagpio*
+
+# ---- strip I2C HID (keyboard / mouse / touch) -----------------------
+
+no ihidev*
+no ims*
+no wsmouse*
+# ikbd needed by wskbd; keep it
+no uts*
+no ums*
+no uep*
+
+# GPIO keys (pulls in wskbd, not needed for headless appliance)
+no gpiokeys*
+
+# ---- strip MIDI -----------------------------------------------------
+
+no midi*
+no umidi*
+no pseudo-device sequencer
+
+# ---- strip HDMI CEC -------------------------------------------------
+
+no hdmicec*
+
+# ---- strip VCHIQ multimedia -----------------------------------------
+
+no vchiq*
+
+# ---- strip extra SPI flash ------------------------------------------
+
+no m25p*
+no spiflash*
+
+# ---- strip Apple leftovers ------------------------------------------
+
+no applesmc*

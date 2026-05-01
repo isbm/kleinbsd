@@ -43,9 +43,18 @@ APT_PKGS += pandoc texlive-xetex texlive-latex-recommended texlive-fonts-recomme
 
 setup:
 	@if ! command -v apt-get >/dev/null 2>&1; then \
-		printf '%s\n' 'apt-get not found. Only Ubuntu/Debian supported.'; \
+		printf '%s\n' 'KleinBSD requires Ubuntu or Debian (apt-get not found).'; \
 		exit 1; \
 	fi
+	@if [ ! -f /etc/os-release ]; then \
+		printf '%s\n' 'KleinBSD requires Ubuntu or Debian (/etc/os-release not found).'; \
+		exit 1; \
+	fi
+	@id=$$( . /etc/os-release && printf '%s %s' "$${ID}" "$${ID_LIKE:-}" ); \
+	case "$$id" in \
+		*ubuntu*|*debian*) ;; \
+		*) printf '%s\n' "KleinBSD requires Ubuntu or Debian (detected: $$id)"; exit 1 ;; \
+	esac
 	@missing=$$(for pkg in $(APT_PKGS); do \
 		dpkg -s "$$pkg" >/dev/null 2>&1 || printf '%s\n' "$$pkg"; \
 	done); \

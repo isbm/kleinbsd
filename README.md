@@ -5,7 +5,7 @@ Raspberry Pi 4 and QEMU.
 
 ## TL;DR
 
-All build artifacts stay inside the project --- nothing spills into
+All build artifacts stay inside the project — nothing spills into
 the parent directory. Typical routine:
 
 ```sh
@@ -16,6 +16,8 @@ make write-sd
 ```
 
 Done!
+
+Want to know more commands? — just run `make`.
 
 ## More Info
 
